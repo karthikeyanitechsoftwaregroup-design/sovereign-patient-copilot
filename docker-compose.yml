@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sovereign_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sovereign
+      POSTGRES_PASSWORD: sovereign
+      POSTGRES_DB: sovereign
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sovereign"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Qdrant (vector DB for future semantic search) ───────────────────────────
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: sovereign_qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # HTTP REST
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # ── Go Backend ──────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sovereign_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://sovereign:sovereign@postgres:5432/sovereign?sslmode=disable"
+      QDRANT_HOST: "qdrant"
+      QDRANT_PORT: "6334"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+    ports:
+      - "8080:8080"
+
+  # ── React Frontend ──────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sovereign_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+  qdrant_data:
