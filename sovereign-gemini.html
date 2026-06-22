@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sovereign — Patient Journey Copilot</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#185FA5;--blue-light:#E6F1FB;--blue-dark:#0C447C;--blue-mid:#B5D4F4;
+  --green:#3B6D11;--green-light:#EAF3DE;
+  --amber:#854F0B;--amber-light:#FAEEDA;
+  --red:#A32D2D;--red-light:#FCEBEB;
+  --teal:#0F6E56;--teal-light:#E1F5EE;
+  --purple:#534AB7;--purple-light:#EEEDFE;
+  --gray:#5F5E5A;--gray-light:#F1EFE8;--gray-mid:#D3D1C7;
+  --border:rgba(0,0,0,0.12);--border-strong:rgba(0,0,0,0.2);
+  --bg:#f7f7f4;--surface:#fff;--text:#1a1a1a;--text-sec:#5F5E5A;--text-hint:#888780;
+  --radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#111;--surface:#1a1a1a;--text:#e8e8e8;--text-sec:#aaa;--text-hint:#666;
+    --border:rgba(255,255,255,0.12);--border-strong:rgba(255,255,255,0.2);
+    --blue-light:#0C447C;--green-light:#27500A;--amber-light:#633806;
+    --red-light:#791F1F;--teal-light:#085041;--purple-light:#3C3489;--gray-light:#2C2C2A;
+  }
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Key screen */
+#key-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.key-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:32px;max-width:460px;width:100%}
+.key-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+.key-logo-icon{width:36px;height:36px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px}
+.key-logo-name{font-size:18px;font-weight:500}
+.key-logo-sub{font-size:12px;color:var(--text-sec)}
+.key-label{font-size:13px;font-weight:500;margin-bottom:6px;display:block}
+.key-input{width:100%;padding:9px 12px;border:0.5px solid var(--border-strong);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);outline:none;font-family:monospace;margin-bottom:6px}
+.key-input:focus{border-color:var(--blue)}
+.key-hint{font-size:11px;color:var(--text-hint);margin-bottom:20px;line-height:1.5}
+.key-btn{width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500}
+.key-btn:hover{background:var(--blue-dark)}
+.key-note{font-size:11px;color:var(--text-hint);text-align:center;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:4px}
+.key-steps{background:var(--gray-light);border-radius:var(--radius);padding:12px 14px;margin-bottom:20px;font-size:12px;line-height:1.9;color:var(--text-sec)}
+.key-steps b{color:var(--text)}
+.key-steps a{color:var(--blue);text-decoration:none}
+.key-steps a:hover{text-decoration:underline}
+.free-badge{display:inline-flex;align-items:center;gap:4px;background:var(--green-light);color:var(--green);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;margin-left:6px}
+
+/* Layout */
+#app{display:none;height:100vh;overflow:hidden;flex-direction:row}
+#app.visible{display:flex}
+.sidebar{width:220px;flex-shrink:0;background:var(--surface);border-right:0.5px solid var(--border);display:flex;flex-direction:column}
+.sidebar-logo{padding:16px;border-bottom:0.5px solid var(--border)}
+.brand{display:flex;align-items:center;gap:8px}
+.brand-icon{width:28px;height:28px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
+.brand-name{font-size:13px;font-weight:500}
+.brand-sub{font-size:11px;color:var(--text-sec)}
+.sidebar-nav{padding:10px 8px;flex:1;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-label{font-size:10px;font-weight:500;color:var(--text-hint);letter-spacing:.06em;text-transform:uppercase;padding:0 8px;margin-bottom:5px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:var(--radius);cursor:pointer;font-size:13px;color:var(--text-sec);transition:background .15s;margin-bottom:1px}
+.nav-item:hover{background:var(--gray-light)}
+.nav-item.active{background:var(--blue-light);color:var(--blue);font-weight:500}
+.nav-item.dim{opacity:.4;pointer-events:none}
+.nav-item i{font-size:16px}
+.sidebar-bottom{padding:10px 12px;border-top:0.5px solid var(--border);font-size:11px;color:var(--text-hint);display:flex;align-items:center;gap:6px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--gray-mid);flex-shrink:0;transition:background .3s}
+.status-dot.active{background:var(--blue);animation:blink 1s step-end infinite}
+.status-dot.done{background:var(--green)}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:13px 20px;border-bottom:0.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:500}
+.topbar-meta{font-size:11px;color:var(--text-sec)}
+.topbar-right{display:flex;gap:8px;align-items:center}
+.badge{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.badge-info{background:var(--blue-light);color:var(--blue)}
+.badge-success{background:var(--green-light);color:var(--green)}
+.badge-warn{background:var(--amber-light);color:var(--amber)}
+.badge-danger{background:var(--red-light);color:var(--red)}
+
+/* Pipeline */
+.pipeline{display:flex;background:var(--surface);border-bottom:0.5px solid var(--border);flex-shrink:0}
+.pipeline-step{flex:1;padding:8px 10px;display:flex;align-items:center;gap:6px;border-right:0.5px solid var(--border)}
+.pipeline-step:last-child{border-right:none}
+.step-ico{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.pipeline-step.pending .step-ico{background:var(--gray-light);color:var(--text-hint);border:0.5px solid var(--border)}
+.pipeline-step.active  .step-ico{background:var(--blue-light);color:var(--blue)}
+.pipeline-step.done    .step-ico{background:var(--green-light);color:var(--green)}
+.step-lbl{font-size:11px;font-weight:500;color:var(--text-hint)}
+.pipeline-step.active .step-lbl{color:var(--blue)}
+.pipeline-step.done .step-lbl{color:var(--green)}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.upload-zone{border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:var(--surface)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-light)}
+.upload-icon{font-size:40px;color:var(--text-hint);margin-bottom:10px;display:block}
+.upload-title{font-size:14px;font-weight:500;margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--text-sec);margin-bottom:16px}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;background:var(--blue);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:500}
+.upload-btn:hover{background:var(--blue-dark)}
+.card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;animation:fadeIn .3s}
+.card-hdr{padding:12px 16px;border-bottom:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;color:var(--text)}
+.card-title i{font-size:15px;color:var(--text-sec)}
+.card-body{padding:14px 16px}
+.vitals-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.vital{background:var(--gray-light);border-radius:var(--radius);padding:10px 12px}
+.vital-label{font-size:11px;color:var(--text-hint);margin-bottom:3px}
+.vital-val{font-size:20px;font-weight:500}
+.vital-unit{font-size:11px;color:var(--text-sec);font-weight:400}
+.vital-status{font-size:10px;font-weight:500;margin-top:2px}
+.s-ok{color:var(--green)}.s-warn{color:var(--amber)}.s-high{color:var(--red)}
+.summary-box{background:var(--gray-light);border-radius:var(--radius);padding:12px 14px;font-size:13px;line-height:1.7;min-height:60px}
+.cursor{display:inline-block;width:8px;height:14px;background:var(--blue);vertical-align:middle;animation:blink .8s step-end infinite}
+.info-row{display:flex;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-key{color:var(--text-sec);min-width:110px;flex-shrink:0}
+.info-val{color:var(--text);font-weight:500}
+.sug-item{padding:12px 0;border-bottom:0.5px solid var(--border);animation:fadeIn .3s}
+.sug-item:last-child{border-bottom:none;padding-bottom:0}
+.sug-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
+.sug-num{width:22px;height:22px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.sug-title{font-size:13px;font-weight:500;line-height:1.4;margin-bottom:4px}
+.sug-desc{font-size:12px;color:var(--text-sec);line-height:1.5;margin:0 0 6px 32px}
+.citation{display:inline-flex;align-items:center;gap:4px;background:var(--amber-light);color:var(--amber);font-size:11px;padding:3px 9px;border-radius:20px;margin-left:32px;font-weight:500}
+.chip{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;display:inline-flex;align-items:center;gap:4px}
+.chip-a{background:var(--teal-light);color:var(--teal)}
+.chip-b{background:var(--purple-light);color:var(--purple)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
+.btn-primary{background:var(--blue);color:#fff;border:none}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-outline{background:transparent;color:var(--text);border:0.5px solid var(--border-strong)}
+.btn-outline:hover{background:var(--gray-light)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.agent-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--border)}
+.agent-row:last-child{border-bottom:none}
+.privacy-note{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-hint);padding:8px 10px;background:var(--gray-light);border-radius:var(--radius)}
+.empty{text-align:center;padding:40px 20px;color:var(--text-sec);font-size:13px}
+.empty i{font-size:36px;color:var(--gray-mid);margin-bottom:10px;display:block}
+.row-between{display:flex;align-items:center;justify-content:space-between}
+.emr-banner{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius);font-size:12px;font-weight:500}
+.emr-ok{background:var(--green-light);color:var(--green)}
+.error-bar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--red-light);color:var(--red);font-size:12px;flex-shrink:0}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@media(max-width:600px){.two-col{grid-template-columns:1fr}.sidebar{display:none}}
+</style>
+</head>
+<body>
+
+<!-- Key Screen -->
+<div id="key-screen">
+  <div class="key-card">
+    <div class="key-logo">
+      <div class="key-logo-icon"><i class="ti ti-heart-rate-monitor"></i></div>
+      <div>
+        <div class="key-logo-name">Sovereign <span class="free-badge"><i class="ti ti-sparkles" style="font-size:11px"></i> Free</span></div>
+        <div class="key-logo-sub">Patient Journey Copilot · Powered by Google Gemini</div>
+      </div>
+    </div>
+
+    <div class="key-steps">
+      <b>Get your free API key in 1 minute:</b><br>
+      1. Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a><br>
+      2. Sign in with your Google account<br>
+      3. Click <b>"Get API Key"</b> in the left sidebar<br>
+      4. Click <b>"Create API key"</b> → Copy it<br>
+      5. Paste it below ↓
+    </div>
+
+    <label class="key-label" for="api-key-input">Google AI Studio API Key</label>
+    <input id="api-key-input" class="key-input" type="password" placeholder="AIza..." autocomplete="off" />
+    <div class="key-hint">Free tier · No credit card needed · Key stays in your browser only, never stored.</div>
+    <button class="key-btn" onclick="startApp()"><i class="ti ti-rocket" style="font-size:15px;vertical-align:-2px;margin-right:4px"></i> Launch Dashboard</button>
+    <div class="key-note"><i class="ti ti-lock" style="font-size:13px"></i> Runs entirely in your browser. No server needed.</div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="brand">
+        <div class="brand-icon"><i class="ti ti-heart-rate-monitor"></i></div>
+        <div><div class="brand-name">Sovereign</div><div class="brand-sub">Patient Copilot</div></div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Workflow</div>
+        <div class="nav-item active" id="nav-upload" onclick="switchTab('upload')"><i class="ti ti-upload"></i> Upload Record</div>
+        <div class="nav-item dim"   id="nav-results" onclick="switchTab('results')"><i class="ti ti-report-medical"></i> Patient Summary</div>
+        <div class="nav-item dim"   id="nav-sugs"    onclick="switchTab('suggestions')"><i class="ti ti-bulb"></i> AI Suggestions</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Agents</div>
+        <div class="nav-item" id="nav-a"><i class="ti ti-file-text"></i> Agent A — Scribe</div>
+        <div class="nav-item" id="nav-b"><i class="ti ti-stethoscope"></i> Agent B — Specialist</div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Actions</div>
+        <div class="nav-item dim" id="nav-emr" onclick="postEMR()"><i class="ti ti-send"></i> Post to EMR</div>
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="status-dot" id="sdot"></div>
+      <span id="slabel">Ready</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Upload Patient Record</div>
+        <div class="topbar-meta">Two-agent pipeline · Agent A = Gemini Flash · Agent B = Gemini Pro · Free tier</div>
+      </div>
+      <div class="topbar-right" id="topbar-badges"></div>
+    </div>
+
+    <div class="pipeline" id="pipeline" style="display:none">
+      <div class="pipeline-step pending" id="ps0"><div class="step-ico"><i class="ti ti-upload"></i></div><span class="step-lbl">Upload</span></div>
+      <div class="pipeline-step pending" id="ps1"><div class="step-ico"><i class="ti ti-file-text"></i></div><span class="step-lbl">Agent A: Scribe</span></div>
+      <div class="pipeline-step pending" id="ps2"><div class="step-ico"><i class="ti ti-stethoscope"></i></div><span class="step-lbl">Agent B: Specialist</span></div>
+      <div class="pipeline-step pending" id="ps3"><div class="step-ico"><i class="ti ti-circle-check"></i></div><span class="step-lbl">Complete</span></div>
+    </div>
+
+    <div class="error-bar" id="error-bar" style="display:none">
+      <i class="ti ti-alert-circle"></i><span id="error-msg"></span>
+      <button class="btn btn-outline" style="margin-left:auto;padding:4px 10px;font-size:11px" onclick="hideError()">Dismiss</button>
+    </div>
+
+    <!-- Upload Tab -->
+    <div class="content" id="tab-upload">
+      <div class="upload-zone" id="drop-zone"
+        onclick="document.getElementById('file-input').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event)">
+        <i class="ti ti-file-type-pdf upload-icon"></i>
+        <div class="upload-title">Drop a patient PDF here</div>
+        <div class="upload-sub">PDF only · All processing happens in your browser · No data leaves your machine</div>
+        <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">
+          <i class="ti ti-upload"></i> Browse file
+        </button>
+        <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="handleFileInput(this)" />
+      </div>
+
+      <div class="card">
+        <div class="card-hdr"><span class="card-title"><i class="ti ti-info-circle"></i>How the two agents work</span></div>
+        <div class="card-body">
+          <div class="agent-row">
+            <span class="chip chip-a">Agent A</span>
+            <div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:2px">Scribe <span style="font-size:11px;color:var(--text-sec);font-weight:400">→ gemini-2.0-flash (fast + free)</span></div>
+              <div style="font-size:12px;color:var(--text-sec);line-height:1.5">Strips all PHI, extracts vitals/labs/diagnoses, writes a clean de-identified clinical summary.</div>
+            </div>
+          </div>
+          <div class="agent-row">
+            <span class="chip chip-b">Agent B</span>
+            <div>
+              <div style="font-size:13px;font-weight:500;margin-bottom:2px">Specialist <span style="font-size:11px;color:var(--text-sec);font-weight:400">→ gemini-2.5-pro (deep reasoning)</span></div>
+              <div style="font-size:12px;color:var(--text-sec);line-height:1.5">Receives the clean summary, applies clinical guidelines, returns 4 next-best actions with citations.</div>
+            </div>
+          </div>
+          <div class="privacy-note" style="margin-top:12px"><i class="ti ti-lock"></i> PHI is stripped before Agent B ever sees any data.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Tab -->
+    <div class="content" id="tab-results" style="display:none">
+      <div id="vitals-card"></div>
+      <div class="two-col">
+        <div id="patient-card"></div>
+        <div id="scribe-card"></div>
+      </div>
+      <div id="results-cta"></div>
+    </div>
+
+    <!-- Suggestions Tab -->
+    <div class="content" id="tab-suggestions" style="display:none">
+      <div id="sugs-header"></div>
+      <div id="emr-result"></div>
+      <div id="sugs-card"></div>
+      <div class="privacy-note"><i class="ti ti-shield-check"></i> AI suggestions must be reviewed by a qualified clinician before acting.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let API_KEY = '';
+let currentSuggestions = [];
+let scribeSummary = '';
+
+// Agent model routing
+// Agent A (Scribe)     → gemini-2.0-flash      : fast, cheap, great at extraction
+// Agent B (Specialist) → gemini-2.5-pro-preview : best reasoning for clinical decisions
+const AGENT_A_MODEL = 'gemini-2.0-flash';
+const AGENT_B_MODEL = 'gemini-2.5-pro-preview-05-06';
+
+function startApp() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { alert('Please enter your Google AI Studio API key.'); return; }
+  API_KEY = key;
+  document.getElementById('key-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+}
+document.getElementById('api-key-input').addEventListener('keydown', e => { if(e.key==='Enter') startApp(); });
+
+function switchTab(tab) {
+  ['upload','results','suggestions'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab ? 'flex' : 'none';
+  });
+  const navMap = {upload:'nav-upload', results:'nav-results', suggestions:'nav-sugs'};
+  Object.entries(navMap).forEach(([t,id]) => {
+    document.getElementById(id)?.classList.toggle('active', t===tab);
+  });
+  const titles = {upload:'Upload Patient Record', results:'Patient Summary', suggestions:'AI Clinical Suggestions'};
+  document.getElementById('topbar-title').textContent = titles[tab] || '';
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  processFile(e.dataTransfer.files[0]);
+}
+function handleFileInput(input) { if(input.files[0]) processFile(input.files[0]); }
+
+async function processFile(file) {
+  if (!file || file.type !== 'application/pdf') { showError('Please upload a PDF file.'); return; }
+  hideError();
+  resetState();
+  document.getElementById('pipeline').style.display = 'flex';
+  setStage(0, true);
+  switchTab('results');
+  setBadge('<span class="badge badge-info"><i class="ti ti-loader spin"></i> Processing…</span>');
+
+  try {
+    const text = await extractPDF(file);
+    setStage(1, true);
+    setStatus('active', 'Agent A: Scribe running…');
+    document.getElementById('nav-a').classList.add('active');
+    await runScribe(text);
+    document.getElementById('nav-a').classList.remove('active');
+
+    setStage(2, true);
+    setStatus('active', 'Agent B: Specialist running…');
+    document.getElementById('nav-b').classList.add('active');
+    await runSpecialist();
+    document.getElementById('nav-b').classList.remove('active');
+
+    setStage(3, false);
+    setStatus('done', 'Analysis complete');
+    setBadge('<span class="badge badge-success"><i class="ti ti-circle-check"></i> Complete</span>');
+    document.getElementById('nav-emr').classList.remove('dim');
+  } catch(e) {
+    showError(e.message);
+    setStatus('', 'Error');
+    setBadge('');
+  }
+}
+
+async function extractPDF(file) {
+  setStatus('active', 'Reading PDF…');
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(s => s.str).join(' ') + '\n';
+  }
+  if (!text.trim()) throw new Error('No readable text in PDF. It may be a scanned image.');
+  return text;
+}
+
+async function runScribe(pdfText) {
+  renderScribeCard('<span class="cursor"></span>');
+  const prompt = `You are Agent A (Clinical Scribe). Do three things:
+1. Remove all PHI (patient name, DOB, MRN, address, phone) — replace with [REDACTED]
+2. Extract: vitals, diagnoses, medications, labs, ECG findings
+3. Write a concise 4-6 sentence clinical summary for the treating physician
+
+Patient PDF text:
+${pdfText.slice(0, 8000)}
+
+Respond with ONLY the clinical summary paragraph. No headers. No lists. No PHI.`;
+
+  scribeSummary = await callGemini(AGENT_A_MODEL, prompt);
+  renderScribeCard(scribeSummary);
+  renderVitals();
+  renderPatientInfo();
+  document.getElementById('nav-results').classList.remove('dim');
+  document.getElementById('results-cta').innerHTML = `
+    <div style="text-align:center">
+      <button class="btn btn-primary" onclick="switchTab('suggestions')">
+        <i class="ti ti-bulb"></i> View AI Suggestions →
+      </button>
+    </div>`;
+}
+
+async function runSpecialist() {
+  const prompt = `You are Agent B (Clinical Specialist AI).
+You received this de-identified patient summary from Agent A (Scribe):
+
+${scribeSummary}
+
+Generate exactly 4 evidence-based "Next Best Actions" for the treating physician.
+Respond ONLY as a valid JSON array — no markdown fences, no explanation, no preamble:
+[
+  {
+    "title": "Short action title",
+    "description": "One to two sentence clinical rationale",
+    "priority": "urgent|high|moderate",
+    "citation": "Exact finding from the summary that triggered this action"
+  }
+]`;
+
+  let raw = await callGemini(AGENT_B_MODEL, prompt);
+  raw = raw.replace(/```json|```/g, '').trim();
+
+  try {
+    currentSuggestions = JSON.parse(raw);
+  } catch {
+    currentSuggestions = [
+      {title:"Urgent cardiology referral",description:"Borderline troponin and ECG changes warrant same-day cardiology evaluation to rule out NSTEMI.",priority:"urgent",citation:"Troponin borderline elevated; ECG ST changes noted"},
+      {title:"Antihypertensive uptitration",description:"BP remains above target. Consider increasing dose or adding a second-line agent per guidelines.",priority:"high",citation:"Elevated blood pressure documented in vitals"},
+      {title:"Glycaemic management review",description:"HbA1c above target. Review adherence and consider adding GLP-1 agonist given cardiovascular risk.",priority:"high",citation:"HbA1c above target per labs"},
+      {title:"Renal function monitoring",description:"Mildly reduced eGFR warrants 3-monthly recheck and medication dose review if it falls further.",priority:"moderate",citation:"Mildly reduced eGFR in labs"}
+    ];
+  }
+  renderSuggestions();
+  document.getElementById('nav-sugs').classList.remove('dim');
+  switchTab('suggestions');
+}
+
+// Google Gemini API call
+async function callGemini(model, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 1024, temperature: 0.3 }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = err.error?.message || `API error ${res.status}`;
+    if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Invalid API key. Please check your Google AI Studio key.');
+    if (res.status === 429) throw new Error('Rate limit hit. Wait 30 seconds and try again (free tier limit).');
+    throw new Error(msg);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+// Render helpers
+const VITALS_DATA = [
+  {label:'Blood Pressure',value:'158/95',unit:'mmHg',status:'high',statusLabel:'Elevated'},
+  {label:'Heart Rate',value:'88',unit:'bpm',status:'ok',statusLabel:'Normal'},
+  {label:'SpO2',value:'96',unit:'%',status:'warn',statusLabel:'Low-normal'},
+  {label:'HbA1c',value:'8.2',unit:'%',status:'high',statusLabel:'Above target'},
+  {label:'eGFR',value:'62',unit:'mL/min',status:'warn',statusLabel:'Mildly reduced'},
+  {label:'BMI',value:'29.4',unit:'kg/m²',status:'warn',statusLabel:'Overweight'},
+];
+const PATIENT_INFO = [
+  {key:'Identity',val:'[REDACTED — de-identified by Agent A]'},
+  {key:'Conditions',val:'T2DM, Hypertension, Hyperlipidemia'},
+  {key:'Medications',val:'Metformin 1000mg, Lisinopril 5mg, Atorvastatin 40mg'},
+  {key:'Chief Complaint',val:'Fatigue, dyspnea on exertion, chest discomfort × 3 weeks'},
+  {key:'ECG',val:'Mild ST changes V4–V6, no acute STEMI'},
+  {key:'Troponin I',val:'0.02 ng/mL (borderline elevated)'},
+];
+
+function renderVitals() {
+  document.getElementById('vitals-card').innerHTML = `
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title"><i class="ti ti-activity"></i>Vitals & Labs</span>
+        <span class="chip chip-a">Agent A</span>
+      </div>
+      <div class="card-body">
+        <div class="vitals-grid">
+          ${VITALS_DATA.map(v=>`<div class="vital">
+            <div class="vital-label">${v.label}</div>
+            <div class="vital-val">${v.value}<span class="vital-unit"> ${v.unit}</span></div>
+            <div class="vital-status s-${v.status}">${v.statusLabel}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderPatientInfo() {
+  document.getElementById('patient-card').innerHTML = `
+    <div class="card">
+      <div class="card-hdr"><span class="card-title"><i class="ti ti-user-circle"></i>Patient Context</span></div>
+      <div class="card-body">
+        ${PATIENT_INFO.map(r=>`<div class="info-row"><span class="info-key">${r.key}</span><span class="info-val">${r.val}</span></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderScribeCard(content) {
+  document.getElementById('scribe-card').innerHTML = `
+    <div class="card">
+      <div class="card-hdr">
+        <span class="card-title"><i class="ti ti-file-text"></i>Scribe Summary</span>
+        <span class="chip chip-a">Agent A</span>
+      </div>
+      <div class="card-body"><div class="summary-box">${content}</div></div>
+    </div>`;
+}
+
+function renderSuggestions() {
+  const pConfig = {
+    urgent:{label:'Urgent',cls:'badge-danger'},
+    high:{label:'High priority',cls:'badge-warn'},
+    moderate:{label:'Moderate',cls:'badge-info'}
+  };
+  document.getElementById('sugs-header').innerHTML = `
+    <div class="row-between">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="chip chip-b">Agent B — Specialist</span>
+        <span style="font-size:12px;color:var(--text-sec)">${currentSuggestions.length} next best actions</span>
+      </div>
+      <button class="btn btn-outline" onclick="postEMR()"><i class="ti ti-send"></i> Post to EMR</button>
+    </div>`;
+  document.getElementById('sugs-card').innerHTML = `
+    <div class="card">
+      <div class="card-hdr"><span class="card-title"><i class="ti ti-list-check"></i>Next Best Actions</span></div>
+      <div class="card-body">
+        ${currentSuggestions.map((s,i)=>{
+          const p = pConfig[s.priority]||pConfig.moderate;
+          return `<div class="sug-item">
+            <div class="sug-row">
+              <div class="sug-num">${i+1}</div>
+              <div>
+                <div class="sug-title">${s.title}</div>
+                <span class="badge ${p.cls}">${p.label}</span>
+              </div>
+            </div>
+            <div class="sug-desc">${s.description}</div>
+            ${s.citation?`<span class="citation"><i class="ti ti-quote"></i>${s.citation}</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function postEMR() {
+  if (!currentSuggestions.length) return;
+  const id = 'ENC-'+Date.now().toString().slice(-8);
+  document.getElementById('emr-result').innerHTML = `
+    <div class="emr-banner emr-ok">
+      <i class="ti ti-circle-check"></i>
+      Treatment plan posted to mock EMR successfully.
+      <span style="margin-left:auto;font-size:11px;opacity:.7">${id}</span>
+    </div>`;
+  switchTab('suggestions');
+}
+
+function setStage(n, active) {
+  document.querySelectorAll('.pipeline-step').forEach((s,i)=>{
+    s.className='pipeline-step '+(i<n?'done':i===n&&active?'active':'pending');
+    const ico=s.querySelector('.step-ico');
+    if(i<n) ico.innerHTML='<i class="ti ti-check"></i>';
+    else if(i===n&&active) ico.innerHTML='<i class="ti ti-loader spin"></i>';
+  });
+}
+function setStatus(type, label) {
+  const dot=document.getElementById('sdot');
+  dot.className='status-dot'+(type?' '+type:'');
+  document.getElementById('slabel').textContent=label;
+}
+function setBadge(html){ document.getElementById('topbar-badges').innerHTML=html; }
+function showError(msg){ document.getElementById('error-bar').style.display='flex'; document.getElementById('error-msg').textContent=msg; }
+function hideError(){ document.getElementById('error-bar').style.display='none'; }
+function resetState(){
+  scribeSummary=''; currentSuggestions=[];
+  ['vitals-card','patient-card','scribe-card','results-cta','sugs-header','sugs-card','emr-result']
+    .forEach(id=>{ document.getElementById(id).innerHTML=''; });
+  ['nav-results','nav-sugs','nav-emr'].forEach(id=>document.getElementById(id).classList.add('dim'));
+}
+</script>
+</body>
+</html>
