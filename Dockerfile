@@ -1,13 +1,21 @@
-# ── Build ────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+# ── Build stage ──────────────────────────────────────────────────────────────
+FROM golang:1.22-alpine AS builder
 
-# ── Serve with nginx ─────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o sovereign ./cmd/server
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates tzdata
+WORKDIR /app
+COPY --from=builder /app/sovereign .
+
+EXPOSE 8080
+ENTRYPOINT ["./sovereign"]
